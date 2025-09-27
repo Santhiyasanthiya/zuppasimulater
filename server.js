@@ -358,6 +358,7 @@ app.post("/udanlogin", async (req, res) => {
       success: true,
       token,
       user: safeUser,
+        aesKey:process.env.AES_KEY_B64
     };
 
     // include simulator fields when available
