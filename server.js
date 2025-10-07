@@ -353,13 +353,14 @@ app.post("/udanlogin", async (req, res) => {
       console.error("Failed to convert AES_KEY_B64 to hex:", e);
       simulatorKeyHex = null;
     }
+const resp = {
+  success: true,
+  token,
+  user: safeUser,
+  AES_KEY_B64: process.env.AES_KEY_B64,  // match PythonLauncher expected name
+  aes_key: process.env.AES_KEY_B64       // optional duplicate for compatibility
+};
 
-    const resp = {
-      success: true,
-      token,
-      user: safeUser,
-        aesKey:process.env.AES_KEY_B64
-    };
 
     // include simulator fields when available
     if (simulatorUrl) resp.simulator_url = simulatorUrl;
