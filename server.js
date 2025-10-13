@@ -60,6 +60,7 @@ app.post("/udansignup", async (req, res) => {
     const { organization, email, mobile, username, password, address, mac } =
       req.body || {};
 
+      console.log("UDDAN", organization, email, mobile, username, password, address, mac);
     if (
       !organization ||
       !email ||
