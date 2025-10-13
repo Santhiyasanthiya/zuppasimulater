@@ -237,7 +237,7 @@ app.post("/udanlogin", async (req, res) => {
         .json({ success: false, reason: "Invalid credentials." });
     }
 
-    // Optionally: store/update mac address on login
+  
     if (mac) {
       try {
         await collection.updateOne({ _id: user._id }, { $set: { mac } });
@@ -255,7 +255,7 @@ app.post("/udanlogin", async (req, res) => {
     };
     const token = Jwt.sign(payload, jwtSecret, { expiresIn: "12h" });
 
-    // Return safe user object (omit passwordHash)
+  
     const safeUser = {
       id: String(user._id),
       username: user.username,
@@ -301,6 +301,74 @@ app.post("/udanlogin", async (req, res) => {
       .json({ success: false, reason: "Server error during login." });
   }
 });
+ 
+// *********************** ADMIN-LOGIN ****************
+
+// ------------------------ Admin Login ------------------------
+app.post("/adminlogin", async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+
+    // Check missing fields
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ success: false, reason: "Missing email or password." });
+    }
+
+    // Predefined admin credentials
+    const admins = [
+      { email: "santhiya30032@gmail.com", password: "252525", name: "Santhiya" },
+      { email: "zuppa@gmail.com", password: "1234", name: "Zuppa Admin" },
+      { email: "ajoy@gmail.com", password: "1234", name: "Ajoy" },
+    ];
+
+    // Find matching admin
+    const admin = admins.find(
+      (a) => a.email === email && a.password === password
+    );
+
+    if (!admin) {
+      return res
+        .status(401)
+        .json({ success: false, reason: "Invalid admin credentials." });
+    }
+
+    // Generate JWT token for admin
+    const jwtSecret = process.env.JWTSECRET || "change_this_secret_in_env";
+    const payload = {
+      role: "admin",
+      email: admin.email,
+      name: admin.name,
+    };
+    const token = Jwt.sign(payload, jwtSecret, { expiresIn: "12h" });
+
+    return res.json({
+      success: true,
+      message: "Admin login successful",
+      token,
+      admin: {
+        email: admin.email,
+        name: admin.name,
+        role: "admin",
+      },
+    });
+  } catch (err) {
+    console.error("Admin login error:", err);
+    return res
+      .status(500)
+      .json({ success: false, reason: "Server error during admin login." });
+  }
+});
+
+
+
+
+
+
+
+
+
 
 // ------------------------ (Optional) Protected test route ------------------------
 app.get("/me", async (req, res) => {
