@@ -61,58 +61,58 @@ app.post("/udansignup", async (req, res) => {
       req.body || {};
 
       console.log("UDDAN", organization, email, mobile, username, password, address, mac);
-    if (
-      !organization ||
-      !email ||
-      !mobile ||
-      !username ||
-      !password ||
-      !address
-    ) {
-      return res
-        .status(400)
-        .json({ success: false, reason: "Missing required fields." });
-    }
+    // if (
+    //   !organization ||
+    //   !email ||
+    //   !mobile ||
+    //   !username ||
+    //   !password ||
+    //   !address
+    // ) {
+    //   return res
+    //     .status(400)
+    //     .json({ success: false, reason: "Missing required fields." });
+    // }
 
-    const existing = await collection.findOne({
-      $or: [{ username: username }, { email: email }],
-    });
-    if (existing) {
-      return res
-        .status(409)
-        .json({ success: false, reason: "Username or email already exists." });
-    }
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
+    // const existing = await collection.findOne({
+    //   $or: [{ username: username }, { email: email }],
+    // });
+    // if (existing) {
+    //   return res
+    //     .status(409)
+    //     .json({ success: false, reason: "Username or email already exists." });
+    // }
+    // const saltRounds = 10;
+    // const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    const doc = {
-      organization,
-      email,
-      mobile,
-      username,
-      passwordHash,
-      address,
-      mac: mac || null,
-      access:false,
-      createdAt: new Date(),
-      activated: true,
-    };
+    // const doc = {
+    //   organization,
+    //   email,
+    //   mobile,
+    //   username,
+    //   passwordHash,
+    //   address,
+    //   mac: mac || null,
+    //   access:false,
+    //   createdAt: new Date(),
+    //   activated: true,
+    // };
 
-    const result = await collection.insertOne(doc);
+    // const result = await collection.insertOne(doc);
 
-    // send welcome email (do not block on failure)
-    const mailOptions = {
-      from: process.env.EMAIL,
-      to: email,
-      subject: "Welcome to Zuppa Simulation",
-      text: `Hello ${username},\n\nThank you for registering. Your account has been created.\n\nRegards,\nZuppa Team`,
-    };
+    // // send welcome email (do not block on failure)
+    // const mailOptions = {
+    //   from: process.env.EMAIL,
+    //   to: email,
+    //   subject: "Welcome to Zuppa Simulation",
+    //   text: `Hello ${username},\n\nThank you for registering. Your account has been created.\n\nRegards,\nZuppa Team`,
+    // };
 
-    transporter.sendMail(mailOptions).catch((err) => {
-      console.warn("Warning: failed to send welcome email:", err);
-    });
+    // transporter.sendMail(mailOptions).catch((err) => {
+    //   console.warn("Warning: failed to send welcome email:", err);
+    // });
 
-    return res.json({ success: true });
+    // return res.json({ success: true });
   } catch (err) {
     console.error("Signup error:", err);
     return res
