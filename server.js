@@ -57,10 +57,10 @@ app.post("/udansignup", async (req, res) => {
     const db = await getDb();
     const collection = db.collection("signin");
 
-    const { organization, email, mobile, username, password, address, mac } =
+    const { organization, email, mobile, username, password, address,  } =
       req.body || {};
 
-      console.log("UDDAN", organization, email, mobile, username, password, address, mac);
+      console.log("UDDAN", organization, email, mobile, username, password, address, );
     if (
       !organization ||
       !email ||
@@ -92,7 +92,7 @@ app.post("/udansignup", async (req, res) => {
   username,
   passwordHash,
   address,
-  mac: mac || null,
+
   access: false,
   createdAt: new Date(),
   activated: false, // 🔥 default OFF
