@@ -53,21 +53,29 @@ app.get("/", (req, res) => {
 
 // ------------------------ Register / Signup ------------------------
 app.post("/udansignup", async (req, res) => {
-  
   try {
     const db = await getDb();
     const collection = db.collection("signin");
 
-    const { organization, email, mobile, username, password, address, mac } =
+    const { organization, email, username, password, mobile, address, mac } =
       req.body || {};
 
-      console.log("UDDAN", organization, email, mobile, username, password, address, mac);
+    console.log(
+      "UDDAN",
+      organization,
+      email,
+      username,
+      password,
+      mobile,
+      address,
+      mac
+    );
     if (
       !organization ||
       !email ||
-      !mobile ||
       !username ||
       !password ||
+      !mobile ||
       !address ||
       !mac
     ) {
@@ -87,23 +95,20 @@ app.post("/udansignup", async (req, res) => {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
- const doc = {
-  organization,
-  email,
-  mobile,
-  username,
-  passwordHash,
-  address,
-  mac: mac || null,
-  access: false,
-  createdAt: new Date(),
-  activated: false, // 🔥 default OFF
-};
-
+    const doc = {
+      organization,
+      email,
+      mobile,
+      username,
+      passwordHash,
+      address,
+      mac: mac || null,
+      access: false,
+      createdAt: new Date(),
+      activated: false, // 🔥 default OFF
+    };
 
     const result = await collection.insertOne(doc);
-
-
 
     return res.json({ success: true });
   } catch (err) {
@@ -141,7 +146,6 @@ app.post("/udanlogin", async (req, res) => {
         .json({ success: false, reason: "Invalid credentials." });
     }
 
-  
     if (mac) {
       try {
         await collection.updateOne({ _id: user._id }, { $set: { mac } });
@@ -159,7 +163,6 @@ app.post("/udanlogin", async (req, res) => {
     };
     const token = Jwt.sign(payload, jwtSecret, { expiresIn: "12h" });
 
-  
     const safeUser = {
       id: String(user._id),
       username: user.username,
@@ -170,7 +173,7 @@ app.post("/udanlogin", async (req, res) => {
       activated: user.activated ?? true,
     };
 
-   const simulatorUrl =
+    const simulatorUrl =
       process.env.SIMULATOR_URL ||
       `${req.protocol}://${req.hostname}:${
         process.env.PORT || PORT
@@ -205,7 +208,7 @@ app.post("/udanlogin", async (req, res) => {
       .json({ success: false, reason: "Server error during login." });
   }
 });
- 
+
 // *********************** ADMIN-LOGIN ****************
 
 // ------------------------ Admin Login ------------------------
@@ -222,7 +225,11 @@ app.post("/adminlogin", async (req, res) => {
 
     // Predefined admin credentials
     const admins = [
-      { email: "santhiya30032@gmail.com", password: "252525", name: "Santhiya" },
+      {
+        email: "santhiya30032@gmail.com",
+        password: "252525",
+        name: "Santhiya",
+      },
       { email: "zuppa@gmail.com", password: "1234", name: "Zuppa Admin" },
       { email: "ajoy@gmail.com", password: "1234", name: "Ajoy" },
     ];
@@ -264,15 +271,6 @@ app.post("/adminlogin", async (req, res) => {
       .json({ success: false, reason: "Server error during admin login." });
   }
 });
-
-
-
-
-
-
-
-
-
 
 // ------------------------ (Optional) Protected test route ------------------------
 app.get("/me", async (req, res) => {
