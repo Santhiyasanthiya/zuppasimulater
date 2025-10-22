@@ -68,7 +68,8 @@ app.post("/udansignup", async (req, res) => {
       !mobile ||
       !username ||
       !password ||
-      !address
+      !address ||
+      !mac
     ) {
       return res
         .status(400)
