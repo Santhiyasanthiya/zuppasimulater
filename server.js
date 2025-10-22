@@ -53,14 +53,15 @@ app.get("/", (req, res) => {
 
 // ------------------------ Register / Signup ------------------------
 app.post("/udansignup", async (req, res) => {
+  
   try {
     const db = await getDb();
     const collection = db.collection("signin");
 
-    const { organization, email, mobile, username, password, address,  } =
+    const { organization, email, mobile, username, password, address, mac } =
       req.body || {};
 
-      console.log("UDDAN", organization, email, mobile, username, password, address, );
+      console.log("UDDAN", organization, email, mobile, username, password, address, mac);
     if (
       !organization ||
       !email ||
@@ -92,7 +93,7 @@ app.post("/udansignup", async (req, res) => {
   username,
   passwordHash,
   address,
-
+  mac: mac || null,
   access: false,
   createdAt: new Date(),
   activated: false, // 🔥 default OFF
@@ -102,10 +103,6 @@ app.post("/udansignup", async (req, res) => {
     const result = await collection.insertOne(doc);
 
 
-
-    transporter.sendMail(mailOptions).catch((err) => {
-      console.warn("Warning: failed to send welcome email:", err);
-    });
 
     return res.json({ success: true });
   } catch (err) {
