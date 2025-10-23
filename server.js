@@ -81,7 +81,7 @@ app.post("/udansignup", async (req, res) => {
     ) {
       return res
         .status(400)
-        .json({ success: false, reason: "Missing required fields." });
+        .json({ success: false, reason: "Missing required fields. Drone Simulator" });
     }
 
     const existing = await collection.findOne({
