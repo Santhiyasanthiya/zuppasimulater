@@ -52,7 +52,7 @@ app.get("/", (req, res) => {
 });
 
 // ------------------------ Register / Signup ------------------------
-app.post("/udansignup", async (req, res) => {
+app.post("/uddansignup", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("signin");
@@ -122,7 +122,7 @@ app.post("/udansignup", async (req, res) => {
 // ------------------------ Login ------------------------
 
 
-app.post("/udanlogin", async (req, res) => {
+app.post("/uddanlogin", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("signin");
@@ -150,7 +150,7 @@ app.post("/udanlogin", async (req, res) => {
         .json({ success: false, reason: "Invalid credentials." });
     }
     
-    
+
 const matchUddan = await bcrypt.compare(uddan, user.uddan);
     if (!matchUddan) {
       return res
