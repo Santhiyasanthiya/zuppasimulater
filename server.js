@@ -57,7 +57,7 @@ app.post("/udansignup", async (req, res) => {
     const db = await getDb();
     const collection = db.collection("signin");
 
-    const { organization, email, username, password, mobile, address, mac } =
+    const { organization, email, username, password, mobile, address, uddan } =
       req.body || {};
 
     console.log(
@@ -68,7 +68,7 @@ app.post("/udansignup", async (req, res) => {
       password,
       mobile,
       address,
-      mac
+      uddan
     );
     if (
       !organization ||
@@ -77,7 +77,7 @@ app.post("/udansignup", async (req, res) => {
       !password ||
       !mobile ||
       !address ||
-      !mac
+      !uddan
     ) {
       return res
         .status(400)
@@ -85,25 +85,25 @@ app.post("/udansignup", async (req, res) => {
     }
 
     const existing = await collection.findOne({
-      $or: [{ username: username }, { email: email }],
+      $or: [ { email: email },{ uddan: uddan }],
     });
     if (existing) {
       return res
         .status(409)
-        .json({ success: false, reason: "Username or email already exists." });
+        .json({ success: false, reason: "Email already exists." });
     }
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
+    const uddanHash = await bcrypt.hash(uddan, saltRounds);
 
     const doc = {
       organization,
       email,
       mobile,
       username,
-      passwordHash,
+      password:passwordHash,
       address,
-      mac: mac || null,
-      access: false,
+      uddan: uddanHash,
       createdAt: new Date(),
       activated: false, // 🔥 default OFF
     };
@@ -120,13 +120,15 @@ app.post("/udansignup", async (req, res) => {
 });
 
 // ------------------------ Login ------------------------
+
+
 app.post("/udanlogin", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("signin");
 
-    const { email, password, mac } = req.body || {};
-    if (!email || !password || !mac) {
+    const { email, password, uddan } = req.body || {};
+    if (!email || !password || !uddan) {
       return res
         .status(400)
         .json({ success: false, reason: "Missing email or password." });
@@ -139,66 +141,39 @@ app.post("/udanlogin", async (req, res) => {
         .json({ success: false, reason: "Invalid credentials." });
     }
 
-    const match = await bcrypt.compare(password, user.passwordHash);
-    if (!match) {
+    
+
+    const matchPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!matchPassword) {
       return res
         .status(401)
         .json({ success: false, reason: "Invalid credentials." });
     }
-
-    if (mac) {
-      try {
-        await collection.updateOne({ _id: user._id }, { $set: { mac } });
-      } catch (e) {
-        console.warn("Failed to update mac:", e);
-      }
+    
+    
+const matchUddan = await bcrypt.compare(uddan, user.uddan);
+    if (!matchUddan) {
+      return res
+        .status(401)
+        .json({ success: false, reason: "Invalid credentials." });
     }
-
-    // Create JWT
-    const jwtSecret = process.env.JWTSECRET || "change_this_secret_in_env";
-    const payload = {
-      id: String(user._id),
-      username: user.username,
-      email: user.email,
-    };
-    const token = Jwt.sign(payload, jwtSecret, { expiresIn: "12h" });
-
-    const safeUser = {
-      id: String(user._id),
-      username: user.username,
-      email: user.email,
-      organization: user.organization,
-      mobile: user.mobile,
-      address: user.address,
-      activated: user.activated ?? true,
-    };
-
-    const simulatorUrl =
-      process.env.SIMULATOR_URL ||
-      `${req.protocol}://${req.hostname}:${
-        process.env.PORT || PORT
-      }/files/Zuppa_Drone_Sim_V2.enc`;
-
-    let simulatorKeyHex = null;
-    try {
-      if (process.env.AES_KEY_B64) {
-        const b64 = process.env.AES_KEY_B64.trim();
-        simulatorKeyHex = base64ToHex(b64);
-      }
-    } catch (e) {
-      console.error("Failed to convert AES_KEY_B64 to hex:", e);
-      simulatorKeyHex = null;
-    }
+ 
+   
     const resp = {
       success: true,
-      token,
-      user: safeUser,
-      AES_KEY_B64: process.env.AES_KEY_B64,
-      aes_key: process.env.AES_KEY_B64,
+      message: "Login successful",
+      user: {
+        id: user._id,
+        organization: user.organization,
+        email: user.email,
+        mobile: user.mobile,
+        username: user.username,
+        address: user.address,
+        activated: user.activated,
+        createdAt: user.createdAt,
+      },
     };
 
-    if (simulatorUrl) resp.simulator_url = simulatorUrl;
-    if (simulatorKeyHex) resp.simulator_key_hex = simulatorKeyHex;
 
     return res.json(resp);
   } catch (err) {
