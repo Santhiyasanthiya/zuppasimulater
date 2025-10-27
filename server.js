@@ -54,24 +54,14 @@ app.get("/", (req, res) => {
   res.send("Zuppa Server Running...");
 });
 
-// ------------------------ Register / Signup ------------------------
+// ------------------------ Step 1: Send OTP ------------------------
 app.post("/uddansignup", async (req, res) => {
   try {
-
+    const db = await getDb();
+    const collection = db.collection("signin");
 
     const { organization, email, username, password, mobile, address, uddan } =
       req.body || {};
-
-    console.log(
-      "UDDAN",
-      organization,
-      email,
-      username,
-      password,
-      mobile,
-      address,
-      uddan
-    );
 
     if (
       !organization ||
@@ -82,39 +72,43 @@ app.post("/uddansignup", async (req, res) => {
       !address ||
       !uddan
     ) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing required fields. Drone Simulator" });
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields. Drone Simulator",
+      });
     }
 
+    // Check existing user
     const existing = await collection.findOne({
-      $or: [ { email: email },{ uddan: uddan }],
+      $or: [{ email }, { uddan }],
     });
     if (existing) {
       return res
         .status(409)
-        .json({ success: false, message: "Email already exists." });
-    }
-
-    if (!email) {
-      return res.status(400).json({ success: false, message: "Email is required." });
+        .json({ success: false, message: "Email or Uddan already exists." });
     }
 
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000; // expires in 5 min
-    otpStore.set(email, { otp, expiresAt });
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 mins
 
-    // Send OTP via email
+    // Store OTP + signup data temporarily
+    otpStore.set(email, {
+      otp,
+      expiresAt,
+      userData: { organization, email, username, password, mobile, address, uddan },
+    });
+
+    // Send OTP Email
     const mailOptions = {
       from: process.env.EMAIL,
       to: email,
-      subject: "Zuppa Simulation - Email Verification OTP",
+      subject: "Zuppa Simulation - Verify your Email",
       html: `
         <div style="font-family: Arial; padding: 10px;">
-          <h2 style="color: #ff6600;">Zuppa Simulation</h2>
+          <h2 style="color:#ff6600;">Zuppa Simulation</h2>
           <p>Your OTP for email verification is:</p>
-          <h1 style="letter-spacing: 4px;">${otp}</h1>
+          <h1 style="letter-spacing:4px;">${otp}</h1>
           <p>This OTP is valid for 5 minutes.</p>
         </div>
       `,
@@ -122,34 +116,34 @@ app.post("/uddansignup", async (req, res) => {
 
     await transporter.sendMail(mailOptions);
 
-    return res.json({ success: true, message: "OTP sent successfully to email." });
-
+    res.json({
+      success: true,
+      message: "OTP sent successfully to your email.",
+    });
   } catch (err) {
     console.error("Signup error:", err);
-    return res
-      .status(500)
-      .json({ success: false, message: "Server error during signup." });
+    res.status(500).json({ success: false, message: "Server error during signup." });
   }
 });
 
-
-// ==================== VERIFY OTP ====================
+// ------------------------ Step 2: Verify OTP & Save ------------------------
 app.post("/verify-otp", async (req, res) => {
   try {
-
     const db = await getDb();
     const collection = db.collection("signin");
 
-    const { organization, email, username, password, mobile, address, uddan, otp } =
-      req.body || {};
-
+    const { email, otp } = req.body || {};
     if (!email || !otp) {
-      return res.status(400).json({ success: false, message: "Missing email or OTP." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing email or OTP." });
     }
 
     const record = otpStore.get(email);
     if (!record) {
-      return res.status(400).json({ success: false, message: "OTP not found. Please resend." });
+      return res
+        .status(400)
+        .json({ success: false, message: "OTP not found. Please resend." });
     }
 
     if (Date.now() > record.expiresAt) {
@@ -161,10 +155,9 @@ app.post("/verify-otp", async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid OTP." });
     }
 
-    otpStore.delete(email); // ✅ remove OTP after verification success
-    otpStore.set(email + "_verified", true); // mark verified status
-
-
+    // ✅ OTP is correct → Store user in MongoDB
+    const { organization, username, password, mobile, address, uddan } =
+      record.userData;
 
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
@@ -175,22 +168,26 @@ app.post("/verify-otp", async (req, res) => {
       email,
       mobile,
       username,
-      password:passwordHash,
+      password: passwordHash,
       address,
       uddan: uddanHash,
       createdAt: new Date(),
-      activated: false, // 🔥 default OFF
+      activated: false,
     };
- 
-    const result = await collection.insertOne(doc);
 
-      return res.json({ success: true, message: "OTP verified successfully." });
+    await collection.insertOne(doc);
+
+    otpStore.delete(email); // cleanup after success
+
+    return res.json({
+      success: true,
+      message: "OTP verified successfully. Account created!",
+    });
   } catch (err) {
     console.error("OTP verify error:", err);
-    return res.status(500).json({ success: false, message: "Error verifying OTP." });
+    res.status(500).json({ success: false, message: "Error verifying OTP." });
   }
 });
-
 // ------------------------ Login ------------------------
 
 
