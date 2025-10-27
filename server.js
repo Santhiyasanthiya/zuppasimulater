@@ -46,6 +46,9 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ==================== OTP STORE (TEMPORARY) ====================
+const otpStore = new Map(); // { email: { otp, expiresAt } }
+
 // ------------------------ Server test route ------------------------
 app.get("/", (req, res) => {
   res.send("Zuppa Server Running...");
