@@ -57,8 +57,7 @@ app.get("/", (req, res) => {
 // ------------------------ Register / Signup ------------------------
 app.post("/uddansignup", async (req, res) => {
   try {
-    const db = await getDb();
-    const collection = db.collection("signin");
+
 
     const { organization, email, username, password, mobile, address, uddan } =
       req.body || {};
@@ -125,31 +124,70 @@ app.post("/uddansignup", async (req, res) => {
 
     return res.json({ success: true, message: "OTP sent successfully to email." });
 
-    
-    // const saltRounds = 10;
-    // const passwordHash = await bcrypt.hash(password, saltRounds);
-    // const uddanHash = await bcrypt.hash(uddan, saltRounds);
-
-    // const doc = {
-    //   organization,
-    //   email,
-    //   mobile,
-    //   username,
-    //   password:passwordHash,
-    //   address,
-    //   uddan: uddanHash,
-    //   createdAt: new Date(),
-    //   activated: false, // 🔥 default OFF
-    // };
-
-    // const result = await collection.insertOne(doc);
-
-    // return res.json({ success: true });
   } catch (err) {
     console.error("Signup error:", err);
     return res
       .status(500)
       .json({ success: false, message: "Server error during signup." });
+  }
+});
+
+
+// ==================== VERIFY OTP ====================
+app.post("/verify-otp", async (req, res) => {
+  try {
+
+    const db = await getDb();
+    const collection = db.collection("signin");
+
+    const { organization, email, username, password, mobile, address, uddan, otp } =
+      req.body || {};
+
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: "Missing email or OTP." });
+    }
+
+    const record = otpStore.get(email);
+    if (!record) {
+      return res.status(400).json({ success: false, message: "OTP not found. Please resend." });
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(email);
+      return res.status(400).json({ success: false, message: "OTP expired." });
+    }
+
+    if (record.otp !== otp) {
+      return res.status(401).json({ success: false, message: "Invalid OTP." });
+    }
+
+    otpStore.delete(email); // ✅ remove OTP after verification success
+    otpStore.set(email + "_verified", true); // mark verified status
+
+
+
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+    const uddanHash = await bcrypt.hash(uddan, saltRounds);
+
+    const doc = {
+      organization,
+      email,
+      mobile,
+      username,
+      password:passwordHash,
+      address,
+      uddan: uddanHash,
+      createdAt: new Date(),
+      activated: false, // 🔥 default OFF
+    };
+ 
+    const result = await collection.insertOne(doc);
+
+      return res.json({ success: true, message: "OTP verified successfully." });
+  } catch (err) {
+    console.error("OTP verify error:", err);
+    return res.status(500).json({ success: false, message: "Error verifying OTP." });
   }
 });
 
