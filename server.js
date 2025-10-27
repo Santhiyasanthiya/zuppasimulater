@@ -70,6 +70,7 @@ app.post("/uddansignup", async (req, res) => {
       address,
       uddan
     );
+
     if (
       !organization ||
       !email ||
@@ -81,7 +82,7 @@ app.post("/uddansignup", async (req, res) => {
     ) {
       return res
         .status(400)
-        .json({ success: false, reason: "Missing required fields. Drone Simulator" });
+        .json({ success: false, message: "Missing required fields. Drone Simulator" });
     }
 
     const existing = await collection.findOne({
@@ -90,32 +91,62 @@ app.post("/uddansignup", async (req, res) => {
     if (existing) {
       return res
         .status(409)
-        .json({ success: false, reason: "Email already exists." });
+        .json({ success: false, message: "Email already exists." });
     }
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
-    const uddanHash = await bcrypt.hash(uddan, saltRounds);
 
-    const doc = {
-      organization,
-      email,
-      mobile,
-      username,
-      password:passwordHash,
-      address,
-      uddan: uddanHash,
-      createdAt: new Date(),
-      activated: false, // 🔥 default OFF
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required." });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // expires in 5 min
+    otpStore.set(email, { otp, expiresAt });
+
+    // Send OTP via email
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: email,
+      subject: "Zuppa Simulation - Email Verification OTP",
+      html: `
+        <div style="font-family: Arial; padding: 10px;">
+          <h2 style="color: #ff6600;">Zuppa Simulation</h2>
+          <p>Your OTP for email verification is:</p>
+          <h1 style="letter-spacing: 4px;">${otp}</h1>
+          <p>This OTP is valid for 5 minutes.</p>
+        </div>
+      `,
     };
 
-    const result = await collection.insertOne(doc);
+    await transporter.sendMail(mailOptions);
 
-    return res.json({ success: true });
+    return res.json({ success: true, message: "OTP sent successfully to email." });
+
+    
+    // const saltRounds = 10;
+    // const passwordHash = await bcrypt.hash(password, saltRounds);
+    // const uddanHash = await bcrypt.hash(uddan, saltRounds);
+
+    // const doc = {
+    //   organization,
+    //   email,
+    //   mobile,
+    //   username,
+    //   password:passwordHash,
+    //   address,
+    //   uddan: uddanHash,
+    //   createdAt: new Date(),
+    //   activated: false, // 🔥 default OFF
+    // };
+
+    // const result = await collection.insertOne(doc);
+
+    // return res.json({ success: true });
   } catch (err) {
     console.error("Signup error:", err);
     return res
       .status(500)
-      .json({ success: false, reason: "Server error during signup." });
+      .json({ success: false, message: "Server error during signup." });
   }
 });
 
@@ -131,14 +162,14 @@ app.post("/uddanlogin", async (req, res) => {
     if (!email || !password || !uddan) {
       return res
         .status(400)
-        .json({ success: false, reason: "Missing email or password." });
+        .json({ success: false, message: "Missing email or password." });
     }
 
     const user = await collection.findOne({ email: email });
     if (!user) {
       return res
         .status(401)
-        .json({ success: false, reason: "Invalid credentials." });
+        .json({ success: false, message: "Invalid credentials." });
     }
 
     
@@ -147,7 +178,7 @@ app.post("/uddanlogin", async (req, res) => {
     if (!matchPassword) {
       return res
         .status(401)
-        .json({ success: false, reason: "Invalid credentials." });
+        .json({ success: false, message: "Invalid credentials." });
     }
     
 
@@ -155,7 +186,7 @@ const matchUddan = await bcrypt.compare(uddan, user.uddan);
     if (!matchUddan) {
       return res
         .status(401)
-        .json({ success: false, reason: "Invalid credentials." });
+        .json({ success: false, message: "Invalid credentials." });
     }
  
    
@@ -180,7 +211,7 @@ const matchUddan = await bcrypt.compare(uddan, user.uddan);
     console.error("Login error:", err);
     return res
       .status(500)
-      .json({ success: false, reason: "Server error during login." });
+      .json({ success: false, message: "Server error during login." });
   }
 });
 
@@ -195,7 +226,7 @@ app.post("/adminlogin", async (req, res) => {
     if (!email || !password) {
       return res
         .status(400)
-        .json({ success: false, reason: "Missing email or password." });
+        .json({ success: false, message: "Missing email or password." });
     }
 
     // Predefined admin credentials
@@ -217,7 +248,7 @@ app.post("/adminlogin", async (req, res) => {
     if (!admin) {
       return res
         .status(401)
-        .json({ success: false, reason: "Invalid admin credentials." });
+        .json({ success: false, message: "Invalid admin credentials." });
     }
 
     // Generate JWT token for admin
@@ -243,7 +274,7 @@ app.post("/adminlogin", async (req, res) => {
     console.error("Admin login error:", err);
     return res
       .status(500)
-      .json({ success: false, reason: "Server error during admin login." });
+      .json({ success: false, message: "Server error during admin login." });
   }
 });
 
@@ -253,7 +284,7 @@ app.get("/me", async (req, res) => {
   if (!auth)
     return res
       .status(401)
-      .json({ success: false, reason: "Missing authorization header." });
+      .json({ success: false, message: "Missing authorization header." });
 
   const token = auth.split(" ")[1];
   const jwtSecret = process.env.JWTSECRET || "change_this_secret_in_env";
@@ -261,7 +292,7 @@ app.get("/me", async (req, res) => {
     const payload = Jwt.verify(token, jwtSecret);
     return res.json({ success: true, payload });
   } catch (err) {
-    return res.status(401).json({ success: false, reason: "Invalid token." });
+    return res.status(401).json({ success: false, message: "Invalid token." });
   }
 });
 
@@ -278,7 +309,7 @@ app.get("/getUsers", async (req, res) => {
     res.json({ success: true, users });
   } catch (err) {
     console.error("Error fetching users:", err);
-    res.status(500).json({ success: false, reason: "Error fetching users." });
+    res.status(500).json({ success: false, message: "Error fetching users." });
   }
 });
 
@@ -300,7 +331,7 @@ app.get("/getDashboardCounts", async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching dashboard counts:", err);
-    res.status(500).json({ success: false, reason: "Error fetching counts" });
+    res.status(500).json({ success: false, message: "Error fetching counts" });
   }
 });
 
@@ -323,13 +354,13 @@ app.put("/updateUser/:id", async (req, res) => {
     if (result.modifiedCount === 0) {
       return res
         .status(404)
-        .json({ success: false, reason: "User not found or no changes." });
+        .json({ success: false, message: "User not found or no changes." });
     }
 
     res.json({ success: true, message: "User updated successfully" });
   } catch (err) {
     console.error("Error updating user:", err);
-    res.status(500).json({ success: false, reason: "Error updating user." });
+    res.status(500).json({ success: false, message: "Error updating user." });
   }
 });
 
