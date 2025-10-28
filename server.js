@@ -54,7 +54,7 @@ app.get("/", (req, res) => {
   res.send("Zuppa Server Running...");
 });
 
-// ------------------------ Step 1: Send OTP ------------------------
+
 // ======================== SIGNUP (Generate OTP) ========================
 app.post("/uddansignup", async (req, res) => {
   try {
@@ -143,6 +143,7 @@ app.post("/verify-otp", async (req, res) => {
     const { organization, username, password, mobile, address, uddan, email, otp } = req.body || {};
 
     console.log("Verifying OTP for:",  organization, username, password, mobile, address, uddan, email, otp);
+
     if (!email || !otp) {
       return res.status(400).json({ success: false, message: "Missing email or OTP." });
     }
@@ -221,6 +222,8 @@ app.post("/uddanlogin", async (req, res) => {
     const collection = db.collection("signin");
 
     const { email, password, uddan } = req.body || {};
+
+    console.log("Login attempt for:", email, password, uddan);
     if (!email || !password || !uddan) {
       return res
         .status(400)
@@ -244,7 +247,7 @@ app.post("/uddanlogin", async (req, res) => {
     }
     
 
-const matchUddan = await bcrypt.compare(uddan, user.uddan);
+    const matchUddan = await bcrypt.compare(uddan, user.uddan);
     if (!matchUddan) {
       return res
         .status(401)
