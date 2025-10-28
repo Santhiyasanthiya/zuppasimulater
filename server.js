@@ -226,7 +226,7 @@ app.post("/uddanlogin", async (req, res) => {
     if (!email || !password || !uddan) {
       return res.status(400).json({
         success: false,
-        message: "Missing email, password or uddan.",
+        message: "Missing email, password or uddan ID.",
       });
     }
 
@@ -238,7 +238,7 @@ app.post("/uddanlogin", async (req, res) => {
         .json({ success: false, message: "Email Invalid credentials." });
     }
 
-    // Compare password (NOTE: field name is 'password' in DB)
+    // Compare password
     const matchPassword = await bcrypt.compare(password, user.password);
     if (!matchPassword) {
       return res
@@ -254,19 +254,24 @@ app.post("/uddanlogin", async (req, res) => {
         .json({ success: false, message: "Uddan Invalid credentials." });
     }
 
-    // ✅ Successful login
+    // Check user activation status
+    if (!user.activated) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is not yet activated. Please contact admin.",
+        activated: false,
+      });
+    }
+
+    // Successful login
     return res.json({
       success: true,
       message: "Login successful",
+      activated: true,
       user: {
-        id: user._id,
-        organization: user.organization,
         email: user.email,
-        mobile: user.mobile,
         username: user.username,
-        address: user.address,
-        activated: user.activated,
-        createdAt: user.createdAt,
+        organization: user.organization,
       },
     });
   } catch (err) {
