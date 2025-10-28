@@ -99,20 +99,33 @@ app.post("/uddansignup", async (req, res) => {
       userData: { organization, email, username, password, mobile, address, uddan },
     });
 
-    // Send OTP Email
-    const mailOptions = {
-      from: process.env.EMAIL,
-      to: email,
-      subject: "Zuppa Simulation - Verify your Email",
-      html: `
-        <div style="font-family: Arial; padding: 10px;">
-          <h2 style="color:#ff6600;">Zuppa Simulation</h2>
-          <p>Your OTP for email verification is:</p>
-          <h1 style="letter-spacing:4px;">${otp}</h1>
-          <p>This OTP is valid for 5 minutes.</p>
-        </div>
-      `,
-    };
+  // Send OTP Email
+const mailOptions = {
+  from: process.env.EMAIL,
+  to: email,
+  subject: "Zuppa Simulation - Verify your Email",
+  html: `
+    <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #fdeae1ff; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+      <h2 style="color:#ff6600; text-align:center;">Zuppa Simulation</h2>
+      <p style="font-size:16px; color:#333;">Dear User,</p>
+      <p style="font-size:15px; color:#333;">Your Simulation OTP is:</p>
+      <h1 style="letter-spacing:4px; text-align:center; color:#000;">${otp}</h1>
+      <p style="font-size:14px; color:#555;">This OTP is valid for <strong>5 minutes</strong>. Please do not share it with anyone.</p>
+
+      <hr style="border:none; border-top:1px solid #ddd; margin:20px 0;" />
+
+      <div style="text-align:center; font-size:13px; color:#888;">
+        <p>Need help or want to explore our products?</p>
+        <a href="https://shop.zuppa.io" target="_blank" style="color:#ff6600; text-decoration:none; font-weight:bold;">
+         shop.zuppa.io
+        </a>
+        <br/>
+        <p style="margin-top:10px;">&copy;2024 Zuppa Geo Navigation. All rights reserved.</p>
+      </div>
+    </div>
+  `,
+};
+
 
     await transporter.sendMail(mailOptions);
 
@@ -132,7 +145,8 @@ app.post("/verify-otp", async (req, res) => {
     const db = await getDb();
     const collection = db.collection("signin");
 
-    const { email, otp } = req.body || {};
+    const { organization, username, password, mobile, address, uddan , email, otp } = req.body || {};
+
     if (!email || !otp) {
       return res
         .status(400)
@@ -156,8 +170,7 @@ app.post("/verify-otp", async (req, res) => {
     }
 
     // ✅ OTP is correct → Store user in MongoDB
-    const { organization, username, password, mobile, address, uddan } =
-      record.userData;
+   
 
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
@@ -188,6 +201,11 @@ app.post("/verify-otp", async (req, res) => {
     res.status(500).json({ success: false, message: "Error verifying OTP." });
   }
 });
+
+
+
+
+
 // ------------------------ Login ------------------------
 
 
@@ -252,6 +270,107 @@ const matchUddan = await bcrypt.compare(uddan, user.uddan);
       .json({ success: false, message: "Server error during login." });
   }
 });
+
+
+
+// ------------------------ Forgot Password (Simple Version) ------------------------
+
+app.post("/forgot-password", async (req, res) => {
+  try {
+    const db = await getDb();
+    const collection = db.collection("signin");
+    const { email } = req.body || {};
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required." });
+    }
+
+    const user = await collection.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "No user found with this email." });
+    }
+
+    // Generate a reset token (JWT valid for 15 minutes)
+    const token = Jwt.sign({ email }, process.env.JWTSECRET, { expiresIn: "5m" });
+
+    const resetLink = `http://localhost:3000/zuppa_uddan_reset_simulater?token=${token}`;
+
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: email,
+      subject: "Zuppa Simulation - Reset Your Password",
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #fdeae1ff; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+          <h2 style="color:#ff6600; text-align:center;">Zuppa Simulation</h2>
+          <p style="font-size:16px; color:#333;">Dear ${user.username || "User"},</p>
+          <p style="font-size:15px; color:#333;">We received a request to reset your password.</p>
+          <p style="font-size:15px; color:#333;">Click the button below to reset your password:</p>
+
+          <div style="text-align:center; margin:20px 0;">
+            <a href="${resetLink}" target="_blank" style="background:#ff6600; color:#fff; padding:10px 20px; border-radius:5px; text-decoration:none; font-weight:bold;">
+              Reset Password
+            </a>
+          </div>
+
+          <p style="font-size:14px; color:#555;">This link will expire in 15 minutes.</p>
+          <hr style="border:none; border-top:1px solid #ddd; margin:20px 0;" />
+
+          <div style="text-align:center; font-size:13px; color:#888;">
+            <p>Need help or want to explore our products?</p>
+            <a href="https://shop.zuppa.io" target="_blank" style="color:#ff6600; text-decoration:none; font-weight:bold;">
+              shop.zuppa.io
+            </a>
+            <br/>
+            <p style="margin-top:10px;">&copy; ${new Date().getFullYear()} Zuppa Geo Navigation. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return res.json({ success: true, message: "Password reset link sent to your email." });
+  } catch (err) {
+    console.error("Forgot Password Error:", err);
+    res.status(500).json({ success: false, message: "Error sending password reset link." });
+  }
+});
+
+// ------------------------ Reset Password (Simple Version) ------------------------
+
+app.post("/reset-password", async (req, res) => {
+  try {
+    const db = await getDb();
+    const collection = db.collection("signin");
+    const { token, newPassword } = req.body || {};
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ success: false, message: "Missing token or new password." });
+    }
+
+    // Verify token
+    const decoded = Jwt.verify(token, process.env.JWTSECRET);
+    const email = decoded.email;
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await collection.updateOne(
+      { email },
+      { $set: { password: passwordHash, updatedAt: new Date() } }
+    );
+
+    return res.json({ success: true, message: "Password reset successful. You can now log in." });
+  } catch (err) {
+    console.error("Reset Password Error:", err);
+    res.status(500).json({ success: false, message: "Error resetting password." });
+  }
+});
+
+
+
+
+
+
 
 // *********************** ADMIN-LOGIN ****************
 
