@@ -142,6 +142,7 @@ app.post("/verify-otp", async (req, res) => {
     const collection = db.collection("signin");
     const { organization, username, password, mobile, address, uddan, email, otp } = req.body || {};
 
+    console.log("Verifying OTP for:",  organization, username, password, mobile, address, uddan, email, otp);
     if (!email || !otp) {
       return res.status(400).json({ success: false, message: "Missing email or OTP." });
     }
