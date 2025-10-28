@@ -61,7 +61,7 @@ app.post("/uddansignup", async (req, res) => {
     const db = await getDb();
     const collection = db.collection("signin");
     const { organization, email, username, password, mobile, address, uddan } = req.body || {};
-
+console.log("Signup request for:", organization, email, username, password, mobile, address, uddan);
     // Validation
     if (!organization || !email || !username || !password || !mobile || !address || !uddan) {
       return res.status(400).json({
