@@ -70,18 +70,21 @@ app.post("/uddansignup", async (req, res) => {
       });
     }
 
-    // 🔹 Check if email already exists
-    const existingUser = await collection.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({ success: false, message: "Email already exists." });
-    }
+// 🔹 Check if email already exists
+const existingEmail = await collection.findOne({ email });
+if (existingEmail) {
+  return res.status(409).json({ success: false, message: "Email already exists." });
+}
 
-    if (uddan) {
-        const uddanMatch = await bcrypt.compare(uddan, existingUser.uddan);
-        if (uddanMatch) {
-          return res.status(409).json({ success: false, message: "Uddan already exists." });
-        }
-    }
+// 🔹 Check if uddan already exists (bcrypt hashed)
+const allUsers = await collection.find({}).toArray();
+for (const user of allUsers) {
+  const uddanMatch = await bcrypt.compare(uddan, user.uddan);
+  if (uddanMatch) {
+    return res.status(409).json({ success: false, message: "Uddan already exists." });
+  }
+}
+
 
 
     // ✅ Generate 6-digit OTP
