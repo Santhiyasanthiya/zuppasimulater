@@ -76,7 +76,7 @@ app.post("/uddansignup", async (req, res) => {
       return res.status(409).json({ success: false, message: "Email already exists." });
     }
 
-    if (existingUser.uddan) {
+    if (uddan) {
         const uddanMatch = await bcrypt.compare(uddan, existingUser.uddan);
         if (uddanMatch) {
           return res.status(409).json({ success: false, message: "Uddan already exists." });
