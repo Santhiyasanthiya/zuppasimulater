@@ -166,7 +166,7 @@ app.post("/verify-otp", async (req, res) => {
     }
 
     if (record.otp !== otp) {
-      return res.status(401).json({ success: false, message: "Invalid OTP." });
+      return res.status(400).json({ success: false, message: "Invalid OTP." });
     }
 
     // ✅ OTP is correct → Store user in MongoDB
