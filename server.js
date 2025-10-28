@@ -55,128 +55,132 @@ app.get("/", (req, res) => {
 });
 
 // ------------------------ Step 1: Send OTP ------------------------
+// ======================== SIGNUP (Generate OTP) ========================
 app.post("/uddansignup", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("signin");
+    const { organization, email, username, password, mobile, address, uddan } = req.body || {};
 
-    const { organization, email, username, password, mobile, address, uddan } =
-      req.body || {};
-
-    if (
-      !organization ||
-      !email ||
-      !username ||
-      !password ||
-      !mobile ||
-      !address ||
-      !uddan
-    ) {
+    // Validation
+    if (!organization || !email || !username || !password || !mobile || !address || !uddan) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields. Drone Simulator",
+        message: "Missing required fields.",
       });
     }
 
-    // Check existing user
-    const existing = await collection.findOne({
-      $or: [{ email }, { uddan }],
-    });
-    if (existing) {
-      return res
-        .status(409)
-        .json({ success: false, message: "Email or Uddan already exists." });
+    // 🔹 Check if email already exists
+    const existingUser = await collection.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: "Email already exists." });
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 mins
+    if (existingUser.uddan) {
+        const uddanMatch = await bcrypt.compare(uddan, existingUser.uddan);
+        if (uddanMatch) {
+          return res.status(409).json({ success: false, message: "Uddan already exists." });
+        }
+    }
 
-    // Store OTP + signup data temporarily
+
+    // ✅ Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+
+    // Store OTP data temporarily
     otpStore.set(email, {
       otp,
       expiresAt,
-      userData: { organization, email, username, password, mobile, address, uddan },
+      attempts: 0, // initialize attempt counter
     });
 
-  // Send OTP Email
-const mailOptions = {
-  from: process.env.EMAIL,
-  to: email,
-  subject: "Zuppa Simulation - Verify your Email",
-  html: `
-    <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #fdeae1ff; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
-      <h2 style="color:#ff6600; text-align:center;">Zuppa Simulation</h2>
-      <p style="font-size:16px; color:#333;">Dear User,</p>
-      <p style="font-size:15px; color:#333;">Your Simulation OTP is:</p>
-      <h1 style="letter-spacing:4px; text-align:center; color:#000;">${otp}</h1>
-      <p style="font-size:14px; color:#555;">This OTP is valid for <strong>5 minutes</strong>. Please do not share it with anyone.</p>
-
-      <hr style="border:none; border-top:1px solid #ddd; margin:20px 0;" />
-
-      <div style="text-align:center; font-size:13px; color:#888;">
-        <p>Need help or want to explore our products?</p>
-        <a href="https://shop.zuppa.io" target="_blank" style="color:#ff6600; text-decoration:none; font-weight:bold;">
-         shop.zuppa.io
-        </a>
-        <br/>
-        <p style="margin-top:10px;">&copy;2024 Zuppa Geo Navigation. All rights reserved.</p>
+    // 🔹 Send OTP Email
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: email,
+      subject: "Zuppa Simulation - Verify your Email",
+      html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #fdeae1ff; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+        <h2 style="color:#ff6600; text-align:center;">Zuppa Simulation</h2>
+        <p style="font-size:16px; color:#333;">Dear User,</p>
+        <p style="font-size:15px; color:#333;">Your Simulation OTP is:</p>
+        <h1 style="letter-spacing:4px; text-align:center; color:#000;">${otp}</h1>
+        <p style="font-size:14px; color:#555;">This OTP is valid for <strong>5 minutes</strong>. Please do not share it with anyone.</p>
+        <hr style="border:none; border-top:1px solid #ddd; margin:20px 0;" />
+        <div style="text-align:center; font-size:13px; color:#888;">
+          <p>Need help or want to explore our products?</p>
+          <a href="https://shop.zuppa.io" target="_blank" style="color:#ff6600; text-decoration:none; font-weight:bold;">
+           shop.zuppa.io
+          </a>
+          <br/>
+          <p style="margin-top:10px;">&copy;2024 Zuppa Geo Navigation. All rights reserved.</p>
+        </div>
       </div>
-    </div>
-  `,
-};
-
+      `,
+    };
 
     await transporter.sendMail(mailOptions);
 
-    res.json({
+    return res.json({
       success: true,
       message: "OTP sent successfully to your email.",
     });
   } catch (err) {
     console.error("Signup error:", err);
-    res.status(500).json({ success: false, message: "Server error during signup." });
+    return res.status(500).json({ success: false, message: "Server error during signup." });
   }
 });
 
-// ------------------------ Step 2: Verify OTP & Save ------------------------
+// ======================== VERIFY OTP ========================
 app.post("/verify-otp", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("signin");
-
-    const { organization, username, password, mobile, address, uddan , email, otp } = req.body || {};
+    const { organization, username, password, mobile, address, uddan, email, otp } = req.body || {};
 
     if (!email || !otp) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing email or OTP." });
+      return res.status(400).json({ success: false, message: "Missing email or OTP." });
     }
 
     const record = otpStore.get(email);
     if (!record) {
-      return res
-        .status(400)
-        .json({ success: false, message: "OTP not found. Please resend." });
+      return res.status(400).json({ success: false, message: "OTP not found. Please resend." });
     }
 
+    // Check expiry
     if (Date.now() > record.expiresAt) {
       otpStore.delete(email);
       return res.status(400).json({ success: false, message: "OTP expired." });
     }
 
-    if (record.otp !== otp) {
-      return res.status(400).json({ success: false, message: "Invalid OTP." });
+    // Check attempts (max 3)
+    if (record.attempts >= 3) {
+      otpStore.delete(email);
+      return res.status(403).json({ success: false, message: "OTP attempts exceeded (3/3). Please request a new one." });
     }
 
-    // ✅ OTP is correct → Store user in MongoDB
-   
+    // If OTP mismatch
+    if (record.otp !== otp) {
+      record.attempts += 1;
+      otpStore.set(email, record); // update attempts
+      const remaining = 3 - record.attempts;
+      if (remaining <= 0) {
+        otpStore.delete(email);
+        return res.status(403).json({ success: false, message: "Maximum attempts reached. OTP deleted." });
+      }
+      return res.status(401).json({
+        success: false,
+        message: `Invalid OTP. You have ${remaining} attempt(s) remaining.`,
+      });
+    }
 
+    // ✅ OTP correct → create account
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
     const uddanHash = await bcrypt.hash(uddan, saltRounds);
 
-    const doc = {
+    const newUser = {
       organization,
       email,
       mobile,
@@ -188,8 +192,7 @@ app.post("/verify-otp", async (req, res) => {
       activated: false,
     };
 
-    await collection.insertOne(doc);
-
+    await collection.insertOne(newUser);
     otpStore.delete(email); // cleanup after success
 
     return res.json({
@@ -201,7 +204,6 @@ app.post("/verify-otp", async (req, res) => {
     res.status(500).json({ success: false, message: "Error verifying OTP." });
   }
 });
-
 
 
 
