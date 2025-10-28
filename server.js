@@ -230,7 +230,7 @@ app.post("/uddanlogin", async (req, res) => {
     if (!user) {
       return res
         .status(401)
-        .json({ success: false, message: "Invalid credentials." });
+        .json({ success: false, message: "Email Invalid credentials." });
     }
 
     
@@ -239,7 +239,7 @@ app.post("/uddanlogin", async (req, res) => {
     if (!matchPassword) {
       return res
         .status(401)
-        .json({ success: false, message: "Invalid credentials." });
+        .json({ success: false, message: "Password Invalid credentials." });
     }
     
 
@@ -247,7 +247,7 @@ const matchUddan = await bcrypt.compare(uddan, user.uddan);
     if (!matchUddan) {
       return res
         .status(401)
-        .json({ success: false, message: "Invalid credentials." });
+        .json({ success: false, message: "Uddan Invalid credentials." });
     }
  
    
