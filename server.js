@@ -220,42 +220,42 @@ app.post("/uddanlogin", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("signin");
-
     const { email, password, uddan } = req.body || {};
 
-    console.log("Login attempt for:", email, password, uddan);
+    // Validation
     if (!email || !password || !uddan) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing email or password." });
+      return res.status(400).json({
+        success: false,
+        message: "Missing email, password or uddan.",
+      });
     }
 
-    const user = await collection.findOne({ email: email });
+    // Find user by email
+    const user = await collection.findOne({ email });
     if (!user) {
       return res
         .status(401)
         .json({ success: false, message: "Email Invalid credentials." });
     }
 
-    
-
-    const matchPassword = await bcrypt.compare(password, user.passwordHash);
+    // Compare password (NOTE: field name is 'password' in DB)
+    const matchPassword = await bcrypt.compare(password, user.password);
     if (!matchPassword) {
       return res
         .status(401)
         .json({ success: false, message: "Password Invalid credentials." });
     }
-    
 
+    // Compare uddan
     const matchUddan = await bcrypt.compare(uddan, user.uddan);
     if (!matchUddan) {
       return res
         .status(401)
         .json({ success: false, message: "Uddan Invalid credentials." });
     }
- 
-   
-    const resp = {
+
+    // ✅ Successful login
+    return res.json({
       success: true,
       message: "Login successful",
       user: {
@@ -268,10 +268,7 @@ app.post("/uddanlogin", async (req, res) => {
         activated: user.activated,
         createdAt: user.createdAt,
       },
-    };
-
-
-    return res.json(resp);
+    });
   } catch (err) {
     console.error("Login error:", err);
     return res
@@ -279,6 +276,7 @@ app.post("/uddanlogin", async (req, res) => {
       .json({ success: false, message: "Server error during login." });
   }
 });
+
 
 
 
