@@ -61,7 +61,7 @@ app.post("/uddansignup", async (req, res) => {
     const db = await getDb();
     const collection = db.collection("signin");
     const { organization, email, username, password, mobile, address, uddan } = req.body || {};
-console.log("Signup request for:", organization, email, username, password, mobile, address, uddan);
+    console.log("Signup request for:", organization, email, username, password, mobile, address, uddan);
     // Validation
     if (!organization || !email || !username || !password || !mobile || !address || !uddan) {
       return res.status(400).json({
@@ -305,7 +305,7 @@ console.log("Forgot password request for:", email);
     // Generate a reset token (JWT valid for 15 minutes)
     const token = Jwt.sign({ email }, process.env.JWTSECRET, { expiresIn: "5m" });
 
-    const resetLink = `http://localhost:3000/zuppa_uddan_reset_simulater?token=${token}`;
+    const resetLink = `http://localhost:3000/zuppa_uddan_reset_simulater?token=${token}&email=${encodeURIComponent(email)}`;
 
     const mailOptions = {
       from: process.env.EMAIL,
@@ -355,14 +355,16 @@ app.post("/reset-password", async (req, res) => {
     const db = await getDb();
     const collection = db.collection("signin");
     const { token, newPassword } = req.body || {};
-
+    console.log("Reset password request with token:", token, newPassword);
     if (!token || !newPassword) {
       return res.status(400).json({ success: false, message: "Missing token or new password." });
     }
 
     // Verify token
     const decoded = Jwt.verify(token, process.env.JWTSECRET);
+
     const email = decoded.email;
+    console.log("Resetting password for email:", email);
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
