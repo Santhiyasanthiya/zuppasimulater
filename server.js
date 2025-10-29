@@ -292,7 +292,7 @@ app.post("/forgot-password", async (req, res) => {
     const db = await getDb();
     const collection = db.collection("signin");
     const { email } = req.body || {};
-
+console.log("Forgot password request for:", email);
     if (!email) {
       return res.status(400).json({ success: false, message: "Email is required." });
     }
@@ -384,7 +384,6 @@ app.post("/reset-password", async (req, res) => {
 
 
 
-// *********************** ADMIN-LOGIN ****************
 
 // ------------------------ Admin Login ------------------------
 app.post("/adminlogin", async (req, res) => {
