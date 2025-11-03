@@ -184,7 +184,7 @@ app.post("/verify-otp", async (req, res) => {
 app.post("/uddanlogin", async (req, res) => {
   try {
     const db = await getDb();
-    const collection = db.collection("signin");
+    const collection = db.collection("UDDAN");
     const { email, password, uddan } = req.body || {};
 
     // Validation
@@ -250,7 +250,7 @@ app.post("/uddanlogin", async (req, res) => {
 app.post("/forgot-password", async (req, res) => {
   try {
     const db = await getDb();
-    const collection = db.collection("signin");
+    const collection = db.collection("UDDAN");
     const { email } = req.body || {};
 console.log("Forgot password request for:", email);
     if (!email) {
@@ -313,7 +313,7 @@ console.log("Forgot password request for:", email);
 app.post("/reset-password", async (req, res) => {
   try {
     const db = await getDb();
-    const collection = db.collection("signin");
+    const collection = db.collection("UDDAN");
     const { token, password } = req.body || {};
     console.log("Reset password request with token:", token, password);
     if (!token || !password) {
