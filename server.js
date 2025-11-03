@@ -11,11 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 4001;
 const URL = process.env.DB;
 
-// ------------------------ Helpers ------------------------
-function base64ToHex(b64) {
-  if (!b64) return null;
-  return Buffer.from(b64, "base64").toString("hex");
-}
+
 
 // ------------------------ DB --------------------------------------
 let client;
@@ -28,7 +24,7 @@ async function getDb() {
     await client.connect();
     console.log("✅ MongoDB connected");
   }
-  return client.db("zuppaSimulation");
+  return client.db("UDDAN_SIMULATION");
 }
 
 // ------------------------ Middleware ----------------------------------
@@ -46,17 +42,15 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// ==================== OTP STORE (TEMPORARY) ====================
-const otpStore = new Map(); // { email: { otp, expiresAt } }
 
 // ------------------------ Server test route ------------------------
 app.get("/", (req, res) => {
-  res.send("Zuppa Server Running...");
+  res.send("error 404: page not found");
 });
 
 
 // ======================== SIGNUP (Generate OTP) ========================
-app.post("/uddansignup", async (req, res) => {
+app.post("/uddan-signup", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("UDDAN");
@@ -115,7 +109,7 @@ app.post("/uddansignup", async (req, res) => {
 
 
 // ======================== VERIFY OTP ========================
-app.post("/verify-otp", async (req, res) => {
+app.post("/uddan-otp", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("UDDAN");
@@ -181,7 +175,7 @@ app.post("/verify-otp", async (req, res) => {
 // ------------------------ Login ------------------------
 
 
-app.post("/uddanlogin", async (req, res) => {
+app.post("/uddan-login", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("UDDAN");
@@ -247,7 +241,7 @@ app.post("/uddanlogin", async (req, res) => {
 
 // ------------------------ Forgot Password (Simple Version) ------------------------
 
-app.post("/forgot-password", async (req, res) => {
+app.post("/uddan-forgot-password", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("UDDAN");
@@ -263,7 +257,7 @@ console.log("Forgot password request for:", email);
     }
 
     // Generate a reset token (JWT valid for 15 minutes)
-    const token = jwt.sign({ email }, process.env.JWTSECRET, { expiresIn: "5m" });
+    const token = jwt.sign({ email }, process.env.UDDAN_JWT_SECRET, { expiresIn: "5m" });
 
     const resetLink = `https://shop.zuppa.io:4000/zuppa_uddan_reset_simulater?token=${token}`;
 
@@ -310,7 +304,7 @@ console.log("Forgot password request for:", email);
 
 // ------------------------ Reset Password (Simple Version) ------------------------
 
-app.post("/reset-password", async (req, res) => {
+app.post("/uddan-reset-password", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("UDDAN");
@@ -321,7 +315,7 @@ app.post("/reset-password", async (req, res) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWTSECRET);
+    const decoded = jwt.verify(token, process.env.UDDAN_JWT_SECRET);
 
     const email = decoded.email;
     console.log("Resetting password for email:", email);
@@ -342,7 +336,7 @@ app.post("/reset-password", async (req, res) => {
 
 
 // ------------------------ Uddan Admin Signup ------------------------
-app.post("/uddanadminsignup", async (req, res) => {
+app.post("/uddan-admin-signup", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("uddan_admins");
@@ -392,7 +386,7 @@ app.post("/uddanadminsignup", async (req, res) => {
 
 
 // ------------------------ Admin Login ------------------------
-app.post("/adminlogin", async (req, res) => {
+app.post("/uddan-adminlogin", async (req, res) => {
   try {
     const { email, password } = req.body || {};
 
@@ -420,13 +414,13 @@ app.post("/adminlogin", async (req, res) => {
         .json({ success: false, message: "Invalid password." });
     }
 
-    const jwtSecret = process.env.JWTSECRET || "change_this_secret_in_env";
+    const UDDAN_JWT_SECRET = process.env.UDDAN_JWT_SECRET || "change_this_secret_in_env";
     const payload = {
       role: "admin",
       email: admin.email,
     };
 
-   const token = jwt.sign(payload, jwtSecret, { expiresIn: "1h" });
+   const token = jwt.sign(payload, UDDAN_JWT_SECRET, { expiresIn: "1h" });
 
     return res.json({
       success: true,
@@ -446,7 +440,7 @@ app.post("/adminlogin", async (req, res) => {
 });
 
 // ------------------------ Verify Token Validity ------------------------
-app.get("/verifyToken", async (req, res) => {
+app.get("/uddan-verifyToken", async (req, res) => {
   try {
     const auth = req.headers.authorization;
     if (!auth) {
@@ -456,8 +450,8 @@ app.get("/verifyToken", async (req, res) => {
     }
 
     const token = auth.split(" ")[1];
-    const jwtSecret = process.env.JWTSECRET || "change_this_secret_in_env";
-    const decoded = jwt.verify(token, jwtSecret);
+    const UDDAN_JWT_SECRET = process.env.UDDAN_JWT_SECRET || "change_this_secret_in_env";
+    const decoded = jwt.verify(token, UDDAN_JWT_SECRET);
 
     return res.json({ success: true, message: "Token valid", decoded });
   } catch (err) {
@@ -468,26 +462,9 @@ app.get("/verifyToken", async (req, res) => {
   }
 });
 
-// ------------------------ (Optional) Protected test route ------------------------
-app.get("/me", async (req, res) => {
-  const auth = req.headers.authorization;
-  if (!auth)
-    return res
-      .status(401)
-      .json({ success: false, message: "Missing authorization header." });
-
-  const token = auth.split(" ")[1];
-  const jwtSecret = process.env.JWTSECRET || "change_this_secret_in_env";
-  try {
-    const payload = jwt.verify(token, jwtSecret);
-    return res.json({ success: true, payload });
-  } catch (err) {
-    return res.status(401).json({ success: false, message: "Invalid token." });
-  }
-});
 
 // ------------------------ Get All Users (for Admin) ------------------------
-app.get("/getUsers", async (req, res) => {
+app.get("/uddan-getUsers", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("UDDAN");
@@ -504,7 +481,7 @@ app.get("/getUsers", async (req, res) => {
 });
 
 // ------------------------ Get Dashboard Counts ------------------------
-app.get("/getDashboardCounts", async (req, res) => {
+app.get("/uddan-getDashboardCounts", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("UDDAN");
@@ -526,7 +503,7 @@ app.get("/getDashboardCounts", async (req, res) => {
 });
 
 // ------------------------ Update User (Admin) ------------------------
-app.put("/updateUser/:id", async (req, res) => {
+app.put("/uddan-updateUser/:id", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("UDDAN");
