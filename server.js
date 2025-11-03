@@ -185,7 +185,7 @@ app.post("/uddan-login", async (req, res) => {
     if (!email || !password || !uddan) {
       return res.status(400).json({
         success: false,
-        message: "Missing email, password or uddan ID.",
+        message: "Missing Email, Password or Uddan Account.",
       });
     }
 
@@ -336,7 +336,7 @@ app.post("/uddan-reset-password", async (req, res) => {
 
 
 // ------------------------ Uddan Admin Signup ------------------------
-app.post("/uddan-admin-signup", async (req, res) => {
+app.post("/uddan-as-ajeet", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("uddan_admins");
