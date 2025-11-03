@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { MongoClient, ObjectId } from "mongodb";
-import Jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import "dotenv/config";
@@ -295,7 +295,7 @@ console.log("Forgot password request for:", email);
     }
 
     // Generate a reset token (JWT valid for 15 minutes)
-    const token = Jwt.sign({ email }, process.env.JWTSECRET, { expiresIn: "5m" });
+    const token = jwt.sign({ email }, process.env.JWTSECRET, { expiresIn: "5m" });
 
     const resetLink = `https://shop.zuppa.io:4000/zuppa_uddan_reset_simulater?token=${token}`;
 
@@ -353,7 +353,7 @@ app.post("/reset-password", async (req, res) => {
     }
 
     // Verify token
-    const decoded = Jwt.verify(token, process.env.JWTSECRET);
+    const decoded = jwt.verify(token, process.env.JWTSECRET);
 
     const email = decoded.email;
     console.log("Resetting password for email:", email);
@@ -373,6 +373,52 @@ app.post("/reset-password", async (req, res) => {
 });
 
 
+// ------------------------ Uddan Admin Signup ------------------------
+app.post("/uddanadminsignup", async (req, res) => {
+  try {
+    const db = await getDb();
+    const collection = db.collection("uddan_admins");
+
+    const { email, password } = req.body || {};
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required.",
+      });
+    }
+
+    // Check if admin already exists
+    const existingAdmin = await collection.findOne({ email });
+    if (existingAdmin) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Admin already exists." });
+    }
+
+    // Hash the password for security
+
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Insert new admin
+    const newAdmin = {
+      email,
+      password: hashedPassword,
+      createdAt: new Date(),
+    };
+
+    await collection.insertOne(newAdmin);
+
+    res.json({
+      success: true,
+      message: "Admin registered successfully.",
+    });
+  } catch (err) {
+    console.error("Admin signup error:", err);
+    res.status(500).json({ success: false, message: "Server error during signup." });
+  }
+});
 
 
 
@@ -384,43 +430,37 @@ app.post("/adminlogin", async (req, res) => {
   try {
     const { email, password } = req.body || {};
 
-    // Check missing fields
     if (!email || !password) {
       return res
         .status(400)
         .json({ success: false, message: "Missing email or password." });
     }
 
-    // Predefined admin credentials
-    const admins = [
-      {
-        email: "santhiya30032@gmail.com",
-        password: "252525",
-        name: "Santhiya",
-      },
-      { email: "zuppa@gmail.com", password: "1234", name: "Zuppa Admin" },
-      { email: "ajoy@gmail.com", password: "1234", name: "Ajoy" },
-    ];
+    const db = await getDb();
+    const collection = db.collection("uddan_admins");
 
-    // Find matching admin
-    const admin = admins.find(
-      (a) => a.email === email && a.password === password
-    );
-
+    const admin = await collection.findOne({ email });
     if (!admin) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid admin credentials." });
     }
 
-    // Generate JWT token for admin
+    
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid password." });
+    }
+
     const jwtSecret = process.env.JWTSECRET || "change_this_secret_in_env";
     const payload = {
       role: "admin",
       email: admin.email,
-      name: admin.name,
     };
-    const token = Jwt.sign(payload, jwtSecret, { expiresIn: "12h" });
+
+    const token = jwt.sign(payload, jwtSecret, { expiresIn: "12h" });
 
     return res.json({
       success: true,
@@ -428,7 +468,6 @@ app.post("/adminlogin", async (req, res) => {
       token,
       admin: {
         email: admin.email,
-        name: admin.name,
         role: "admin",
       },
     });
@@ -451,7 +490,7 @@ app.get("/me", async (req, res) => {
   const token = auth.split(" ")[1];
   const jwtSecret = process.env.JWTSECRET || "change_this_secret_in_env";
   try {
-    const payload = Jwt.verify(token, jwtSecret);
+    const payload = jwt.verify(token, jwtSecret);
     return res.json({ success: true, payload });
   } catch (err) {
     return res.status(401).json({ success: false, message: "Invalid token." });
