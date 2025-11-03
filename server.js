@@ -60,121 +60,92 @@ app.post("/uddansignup", async (req, res) => {
   try {
     const db = await getDb();
     const collection = db.collection("UDDAN");
+    const otpCollection = db.collection("UDDAN_OTP"); // OTP collection
+
     const { organization, email, username, password, mobile, address, uddan } = req.body || {};
-    console.log("Signup request for:", organization, email, username, password, mobile, address, uddan);
-    // Validation
+
     if (!organization || !email || !username || !password || !mobile || !address || !uddan) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields.",
-      });
+      return res.status(400).json({ success: false, message: "Missing required fields." });
     }
 
-// 🔹 Check if email already exists
-const existingEmail = await collection.findOne({ email });
-if (existingEmail) {
-  return res.status(409).json({ success: false, message: "Email already exists." });
-}
+    // Check email & uddan existence
+    const existingEmail = await collection.findOne({ email });
+    if (existingEmail) return res.status(409).json({ success: false, message: "Email already exists." });
 
-// 🔹 Check if uddan already exists (bcrypt hashed)
-const allUsers = await collection.find({}).toArray();
-for (const user of allUsers) {
-  const uddanMatch = await bcrypt.compare(uddan, user.uddan);
-  if (uddanMatch) {
-    return res.status(409).json({ success: false, message: "Uddan Account already exists." });
-  }
-}
-    // ✅ Generate 6-digit OTP
+    const allUsers = await collection.find({}).toArray();
+    for (const user of allUsers) {
+      const uddanMatch = await bcrypt.compare(uddan, user.uddan);
+      if (uddanMatch) return res.status(409).json({ success: false, message: "Uddan Account already exists." });
+    }
+
+    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
 
-    // Store OTP data temporarily
-    otpStore.set(email, {
-      otp,
-      expiresAt,
-      attempts: 0, // initialize attempt counter
-    });
+    // Store OTP in DB (replace if exists)
+    await otpCollection.updateOne(
+      { email },
+      { $set: { otp, expiresAt, attempts: 0 } },
+      { upsert: true }
+    );
 
-    // 🔹 Send OTP Email
+    // Send OTP Email
     const mailOptions = {
       from: process.env.EMAIL,
       to: email,
       subject: "Zuppa Simulation - Verify your Email",
       html: `
-      <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #fdeae1ff; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
-        <h2 style="color:#ff6600; text-align:center;">Zuppa Simulation</h2>
-        <p style="font-size:16px; color:#333;">Dear User,</p>
-        <p style="font-size:15px; color:#333;">Your Simulation OTP is:</p>
-        <h1 style="letter-spacing:4px; text-align:center; color:#000;">${otp}</h1>
-        <p style="font-size:14px; color:#555;">This OTP is valid for <strong>5 minutes</strong>. Please do not share it with anyone.</p>
-        <hr style="border:none; border-top:1px solid #ddd; margin:20px 0;" />
-        <div style="text-align:center; font-size:13px; color:#888;">
-          <p>Need help or want to explore our products?</p>
-          <a href="https://shop.zuppa.io" target="_blank" style="color:#ff6600; text-decoration:none; font-weight:bold;">
-           shop.zuppa.io
-          </a>
-          <br/>
-          <p style="margin-top:10px;">&copy;2024 Zuppa Geo Navigation. All rights reserved.</p>
+        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #fdeae1ff; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+          <h2 style="color:#ff6600; text-align:center;">Zuppa Simulation</h2>
+          <p>Your OTP is:</p>
+          <h1 style="letter-spacing:4px; text-align:center; color:#000;">${otp}</h1>
+          <p>This OTP is valid for <strong>5 minutes</strong>.</p>
         </div>
-      </div>
       `,
     };
 
     await transporter.sendMail(mailOptions);
 
-    return res.json({
-      success: true,
-      message: "OTP sent successfully to your email.",
-    });
+    return res.json({ success: true, message: "OTP sent successfully to your email." });
   } catch (err) {
     console.error("Signup error:", err);
     return res.status(500).json({ success: false, message: "Server error during signup." });
   }
 });
 
+
 // ======================== VERIFY OTP ========================
 app.post("/verify-otp", async (req, res) => {
   try {
     const db = await getDb();
-   const collection = db.collection("UDDAN");
+    const collection = db.collection("UDDAN");
+    const otpCollection = db.collection("UDDAN_OTP"); // OTP collection
+
     const { organization, username, password, mobile, address, uddan, email, otp } = req.body || {};
 
-    console.log("Verifying OTP for:",  organization, username, password, mobile, address, uddan, email, otp);
+    if (!email || !otp) return res.status(400).json({ success: false, message: "Missing email or OTP." });
 
-    if (!email || !otp) {
-      return res.status(400).json({ success: false, message: "Missing email or OTP." });
-    }
-
-    const record = otpStore.get(email);
-    if (!record) {
-      return res.status(400).json({ success: false, message: "OTP not found. Please resend." });
-    }
+    // Find OTP in DB
+    const record = await otpCollection.findOne({ email });
+    if (!record) return res.status(400).json({ success: false, message: "OTP not found. Please resend." });
 
     // Check expiry
     if (Date.now() > record.expiresAt) {
-      otpStore.delete(email);
+      await otpCollection.deleteOne({ email });
       return res.status(400).json({ success: false, message: "OTP expired." });
     }
 
-    // Check attempts (max 3)
+    // Check attempts
     if (record.attempts >= 3) {
-      otpStore.delete(email);
+      await otpCollection.deleteOne({ email });
       return res.status(403).json({ success: false, message: "OTP attempts exceeded (3/3). Please request a new one." });
     }
 
-    // If OTP mismatch
+    // OTP mismatch
     if (record.otp !== otp) {
-      record.attempts += 1;
-      otpStore.set(email, record); // update attempts
-      const remaining = 3 - record.attempts;
-      if (remaining <= 0) {
-        otpStore.delete(email);
-        return res.status(403).json({ success: false, message: "Maximum attempts reached. OTP deleted." });
-      }
-      return res.status(401).json({
-        success: false,
-        message: `Invalid OTP. You have ${remaining} attempt(s) remaining.`,
-      });
+      await otpCollection.updateOne({ email }, { $inc: { attempts: 1 } });
+      const remaining = 3 - (record.attempts + 1);
+      return res.status(401).json({ success: false, message: `Invalid OTP. You have ${remaining} attempt(s) remaining.` });
     }
 
     // ✅ OTP correct → create account
@@ -195,12 +166,9 @@ app.post("/verify-otp", async (req, res) => {
     };
 
     await collection.insertOne(newUser);
-    otpStore.delete(email); 
+    await otpCollection.deleteOne({ email }); // remove OTP after success
 
-    return res.json({
-      success: true,
-      message: "OTP verified successfully. Account created!",
-    });
+    return res.json({ success: true, message: "OTP verified successfully. Account created!" });
   } catch (err) {
     console.error("OTP verify error:", err);
     res.status(500).json({ success: false, message: "Error verifying OTP." });
