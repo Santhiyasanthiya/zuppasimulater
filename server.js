@@ -490,7 +490,7 @@ app.get("/me", async (req, res) => {
 app.get("/getUsers", async (req, res) => {
   try {
     const db = await getDb();
-    const collection = db.collection("signin");
+    const collection = db.collection("UDDAN");
 
     const users = await collection
       .find({}, { projection: { passwordHash: 0 } })
@@ -507,7 +507,7 @@ app.get("/getUsers", async (req, res) => {
 app.get("/getDashboardCounts", async (req, res) => {
   try {
     const db = await getDb();
-    const collection = db.collection("signin");
+    const collection = db.collection("UDDAN");
 
     const totalUsers = await collection.countDocuments();
     const totalAccess = await collection.countDocuments({ activated: true });
@@ -529,7 +529,7 @@ app.get("/getDashboardCounts", async (req, res) => {
 app.put("/updateUser/:id", async (req, res) => {
   try {
     const db = await getDb();
-    const collection = db.collection("signin");
+    const collection = db.collection("UDDAN");
 
     const { id } = req.params;
     const updatedData = req.body;
