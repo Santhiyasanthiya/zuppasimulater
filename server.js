@@ -246,7 +246,7 @@ app.post("/uddan-forgot-password", async (req, res) => {
     const db = await getDb();
     const collection = db.collection("UDDAN");
     const { email } = req.body || {};
-console.log("Forgot password request for:", email);
+    console.log("Forgot password request for:", email);
     if (!email) {
       return res.status(400).json({ success: false, message: "Email is required." });
     }
@@ -259,7 +259,7 @@ console.log("Forgot password request for:", email);
     // Generate a reset token (JWT valid for 15 minutes)
     const token = jwt.sign({ email }, process.env.UDDAN_JWT_SECRET, { expiresIn: "5m" });
 
-    const resetLink = `https://shop.zuppa.io:4000/zuppa_uddan_reset_simulater?token=${token}`;
+    const resetLink = `https://shop.zuppa.io/zuppa_uddan_reset_simulater?token=${token}`;
 
     const mailOptions = {
       from: process.env.EMAIL,
