@@ -423,8 +423,6 @@ app.post("/uddanadminsignup", async (req, res) => {
 
 
 
-
-
 // ------------------------ Admin Login ------------------------
 app.post("/adminlogin", async (req, res) => {
   try {
@@ -460,7 +458,7 @@ app.post("/adminlogin", async (req, res) => {
       email: admin.email,
     };
 
-    const token = jwt.sign(payload, jwtSecret, { expiresIn: "12h" });
+   const token = jwt.sign(payload, jwtSecret, { expiresIn: "1h" });
 
     return res.json({
       success: true,
@@ -476,6 +474,29 @@ app.post("/adminlogin", async (req, res) => {
     return res
       .status(500)
       .json({ success: false, message: "Server error during admin login." });
+  }
+});
+
+// ------------------------ Verify Token Validity ------------------------
+app.get("/verifyToken", async (req, res) => {
+  try {
+    const auth = req.headers.authorization;
+    if (!auth) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Missing authorization header." });
+    }
+
+    const token = auth.split(" ")[1];
+    const jwtSecret = process.env.JWTSECRET || "change_this_secret_in_env";
+    const decoded = jwt.verify(token, jwtSecret);
+
+    return res.json({ success: true, message: "Token valid", decoded });
+  } catch (err) {
+    console.error("Token verification failed:", err);
+    return res
+      .status(401)
+      .json({ success: false, message: "Token invalid or expired." });
   }
 });
 
