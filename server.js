@@ -59,7 +59,7 @@ app.get("/", (req, res) => {
 app.post("/uddansignup", async (req, res) => {
   try {
     const db = await getDb();
-    const collection = db.collection("signin");
+    const collection = db.collection("UDDAN");
     const { organization, email, username, password, mobile, address, uddan } = req.body || {};
     console.log("Signup request for:", organization, email, username, password, mobile, address, uddan);
     // Validation
@@ -81,12 +81,9 @@ const allUsers = await collection.find({}).toArray();
 for (const user of allUsers) {
   const uddanMatch = await bcrypt.compare(uddan, user.uddan);
   if (uddanMatch) {
-    return res.status(409).json({ success: false, message: "Uddan already exists." });
+    return res.status(409).json({ success: false, message: "Uddan Account already exists." });
   }
 }
-
-
-
     // ✅ Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
@@ -139,7 +136,7 @@ for (const user of allUsers) {
 app.post("/verify-otp", async (req, res) => {
   try {
     const db = await getDb();
-    const collection = db.collection("signin");
+   const collection = db.collection("UDDAN");
     const { organization, username, password, mobile, address, uddan, email, otp } = req.body || {};
 
     console.log("Verifying OTP for:",  organization, username, password, mobile, address, uddan, email, otp);
@@ -198,7 +195,7 @@ app.post("/verify-otp", async (req, res) => {
     };
 
     await collection.insertOne(newUser);
-    otpStore.delete(email); // cleanup after success
+    otpStore.delete(email); 
 
     return res.json({
       success: true,
@@ -251,14 +248,14 @@ app.post("/uddanlogin", async (req, res) => {
     if (!matchUddan) {
       return res
         .status(401)
-        .json({ success: false, message: "Uddan Invalid credentials." });
+        .json({ success: false, message: "Uddan Account Invalid credentials." });
     }
 
     // Check user activation status
     if (!user.activated) {
       return res.status(403).json({
         success: false,
-        message: "Your account is not yet activated. Please contact admin.",
+        message: "Your account is not yet activated. Please contact Zuppa Support.",
         activated: false,
       });
     }
@@ -267,12 +264,7 @@ app.post("/uddanlogin", async (req, res) => {
     return res.json({
       success: true,
       message: "Login successful",
-      activated: true,
-      user: {
-        email: user.email,
-        username: user.username,
-        organization: user.organization,
-      },
+      activated: true
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -305,7 +297,7 @@ console.log("Forgot password request for:", email);
     // Generate a reset token (JWT valid for 15 minutes)
     const token = Jwt.sign({ email }, process.env.JWTSECRET, { expiresIn: "5m" });
 
-    const resetLink = `http://localhost:3000/zuppa_uddan_reset_simulater?token=${token}`;
+    const resetLink = `https://shop.zuppa.io:4000/zuppa_uddan_reset_simulater?token=${token}`;
 
     const mailOptions = {
       from: process.env.EMAIL,
